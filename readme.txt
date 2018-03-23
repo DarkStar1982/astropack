@@ -5,4 +5,5 @@ Planned features include:
 - propulsion
 - aocs
 - link budget
-- power simulator
+- power budget
+- system simulator 

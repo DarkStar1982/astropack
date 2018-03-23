@@ -158,17 +158,5 @@ def main():
 
     ir_flux = x
     area_module_1 =get_surface_area(module1)
-    # module example
-    #t3 = get_equilibrium_t(absorbtivity_visible,
-    #                   emissivity_ir,
-    #                   0,
-    #                   0,
-    #                   ir_flux,
-    #                   0,
-    #                   0,
-    #                   area_ir,
-    #                   area_dissipation,
-    #                   20)
-    #print("Module temperature is %3.2f C" % (t3-273.15))
 
 main()
