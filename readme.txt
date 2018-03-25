@@ -1,4 +1,4 @@
-This is a set of utilities, useful for building first order model of satellite/spacecraft systems
+This is a set of utilities, useful for building first order models of satellite/spacecraft systems
 Planned features include:
 - structural
 - thermal
@@ -6,4 +6,4 @@ Planned features include:
 - aocs
 - link budget
 - power budget
-- system simulator 
+- system simulator
