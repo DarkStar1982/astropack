@@ -158,13 +158,53 @@ def load_satellite_geometry():
     satellite["area_albedo"]["area"] = total_area/2.0
     satellite["area_ir"]["area"] = total_area/2.0
     satellite["area_dissipation"]["area"] = total_area
-    satellite["heat_dissipation"] = 3000
+    satellite["heat_dissipation"] = 4600
     return satellite
 
 def load_module_list():
     # geometry example - uniform illumination and uniform properties
-    module1 = {
-        "id":"test",
+    battery_pack = {
+        "id":"battery_pack",
+        "class":"uniform",
+        "type":"box",
+        "heat_dissipation":0.0,
+        "emissivity":{
+            "ir": 0.21,
+            "visible":0.9
+        },
+        "absorptivity":{
+            "ir":0.21,
+            "visible":0.9
+        },
+        "dimensions":{
+            "a":1.536,
+            "b":0.27,
+            "c":0.276,
+        }
+    }
+
+    pdu = {
+        "id":"PDU",
+        "class":"uniform",
+        "type":"box",
+        "heat_dissipation":300.0,
+        "emissivity":{
+            "ir": 0.9,
+            "visible":0.9
+        },
+        "absorptivity":{
+            "ir":0.9,
+            "visible":0.9
+        },
+        "dimensions":{
+            "a":0.39,
+            "b":0.19,
+            "c":0.19,
+        }
+    }
+
+    smu = {
+        "id":"SMU",
         "class":"uniform",
         "type":"box",
         "heat_dissipation":30.0,
@@ -182,7 +222,7 @@ def load_module_list():
             "c":0.276,
         }
     }
-    return [module1]
+    return [battery_pack, pdu, smu]
 
 def main():
     satellite1 = load_satellite_geometry()
@@ -191,6 +231,7 @@ def main():
     module_list = load_module_list()
     get_detailed_thermal_balance(orbital_altitude2, satellite1, module_list)
     # cold case
+    satellite1["heat_dissipation"] = 3000
     print ("Calculating cold case...")
     get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
 
