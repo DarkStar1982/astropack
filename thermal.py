@@ -13,63 +13,6 @@ SB_CONST = 5.6703E-8
 orbital_altitude1 = 3.6E7 # geosynchronous orbit
 orbital_altitude2 = 2.5E5 # low-earth orbit
 
-# geometry example - uniform illumination and uniform properties
-module1 = {
-    "class":"uniform",
-    "type":"box",
-    "heat_dissipation":30.0,
-    "emissivity":{
-        "ir": 0.9,
-        "visible":0.9
-    },
-    "absorptivity":{
-        "ir":0.9,
-        "visible":0.9
-    },
-    "dimensions":{
-        "a":0.42,
-        "b":0.27,
-        "c":0.276,
-    }
-}
-
-# how it should be:
-# input: geometry + materials + radiation sources
-# output: equilibrium temperature or heating/cooling required
-# geometry example - non-uniform illumination and non-uniform properties
-satellite1 = {
-    "heat_dissipation":0.0,
-    "class":"variable",
-    "area_visible" :
-    {
-        "area":1.0,
-        "e_ir":0.9,
-        "a_ir":0.9,
-        "a_visible":0.21
-    },
-    "area_albedo":
-    {
-        "area":1.0,
-        "e_ir":0.9,
-        "a_ir":0.9,
-        "a_visible":0.21
-    },
-    "area_ir":
-    {
-        "area":1.0,
-        "e_ir":0.9,
-        "a_ir":0.9,
-        "a_visible":0.21
-    },
-    "area_dissipation":
-    {
-        "area":1.0,
-        "e_ir":0.9,
-        "a_ir":0.9,
-        "a_visible":0.21
-    }
-}
-
 def display_in_celcius(value):
     return (value-273.15)
 
@@ -153,102 +96,102 @@ def get_equilibrium_temperature(model, heat_flux):
         result = pow(total_heat_in/total_heat_out,0.25)
     return result
 
-# this assumes zero thermal capacity
-def get_equilibrium_t(absorptivity_visible,
-                      emissivity_ir,
-                      flux_visible,
-                      flux_albedo,
-                      flux_ir,
-                      area_absorbing_visible,
-                      area_absorbing_albedo,
-                      area_absorbing_ir,
-                      area_emitting_ir,
-                      internal_heat):
-
-    absorptivity_ir = emissivity_ir
-    heat_in = area_absorbing_visible*absorptivity_visible*flux_visible
-    heat_in = heat_in + area_absorbing_albedo*absorptivity_visible*flux_albedo
-    heat_in = heat_in + area_absorbing_ir*absorptivity_ir*flux_ir + internal_heat
-    heat_out = area_emitting_ir*emissivity_ir*SB_CONST
-    # there should be a heat equation solver instead of instantenous temperature
-    result = pow(heat_in/heat_out,0.25)
-    return result
-
 def calculate_heat_balance(orbital_altitude, model, eclipse=False):
     heat_inflow = heat_flux_in(orbital_altitude,eclipse)
-    temp = get_equilibrium_temperature(satellite1,heat_inflow)
+    temp = get_equilibrium_temperature(model,heat_inflow)
     reradiated = power_radiation(temp)
-    # wavelength from T
-    print("Equilibrium temperatute is %3.2f C" % display_in_celcius(temp))
-    print ('Re-radiated power is %3.2f W/m^2' % reradiated)
+    return {"temp":temp, "reradiated":reradiated}
+
+def get_detailed_thermal_balance(orbit, satellite, module_list, eclipse=False):
+    case = calculate_heat_balance(orbit, satellite, eclipse)
+    print ("Equilibrium temperatute is %3.2f C" % display_in_celcius(case["temp"]))
+    print ('Re-radiated power internally is %3.2f W/m^2' % case["reradiated"])
+    heat_flux = {
+        "ir_flux":case["reradiated"],
+        "albedo_flux":0.0,
+        "solar_flux":0.0
+    }
+    for x in module_list:
+        t = get_equilibrium_temperature(x, heat_flux)
+        print("Equilibrium temperature for module: %s is %3.2f C" %(x["id"],display_in_celcius(t)))
+
+# initialize data
+# how it should be:
+# input: geometry + materials + radiation sources
+# output: equilibrium temperature or heating/cooling required
+# geometry example - non-uniform illumination and non-uniform properties
+def load_satellite_geometry():
+    satellite = {
+        "heat_dissipation":0.0,
+        "class":"variable",
+        "area_visible" :
+        {
+            "area":1.0,
+            "e_ir":0.9,
+            "a_ir":0.9,
+            "a_visible":0.21
+        },
+        "area_albedo":
+        {
+            "area":1.0,
+            "e_ir":0.9,
+            "a_ir":0.9,
+            "a_visible":0.21
+        },
+        "area_ir":
+        {
+            "area":1.0,
+            "e_ir":0.9,
+            "a_ir":0.9,
+            "a_visible":0.21
+        },
+        "area_dissipation":
+        {
+            "area":1.0,
+            "e_ir":0.9,
+            "a_ir":0.9,
+            "a_visible":0.21
+        }
+    }
+    total_area = 2.2*1.9*2+2.2*3.5*2+1.9*3.5*2
+    satellite["area_visible"]["area"] = total_area/2.0
+    satellite["area_albedo"]["area"] = total_area/2.0
+    satellite["area_ir"]["area"] = total_area/2.0
+    satellite["area_dissipation"]["area"] = total_area
+    satellite["heat_dissipation"] = 3000
+    return satellite
+
+def load_module_list():
+    # geometry example - uniform illumination and uniform properties
+    module1 = {
+        "id":"test",
+        "class":"uniform",
+        "type":"box",
+        "heat_dissipation":30.0,
+        "emissivity":{
+            "ir": 0.9,
+            "visible":0.9
+        },
+        "absorptivity":{
+            "ir":0.9,
+            "visible":0.9
+        },
+        "dimensions":{
+            "a":0.42,
+            "b":0.27,
+            "c":0.276,
+        }
+    }
+    return [module1]
 
 def main():
-    #initialize data
-    total_area = 2.2*1.9*2+2.2*3.5*2+1.9*3.5*2
-    satellite1["area_visible"]["area"] = total_area/2.0
-    satellite1["area_albedo"]["area"] = total_area/2.0
-    satellite1["area_ir"]["area"] = total_area/2.0
-    satellite1["area_dissipation"]["area"] = total_area
-    satellite1["heat_dissipation"] = 3000
+    satellite1 = load_satellite_geometry()
     # hot case
-    calculate_heat_balance(orbital_altitude2, satellite1)
+    print ("Calculating hot case...")
+    module_list = load_module_list()
+    get_detailed_thermal_balance(orbital_altitude2, satellite1, module_list)
     # cold case
-    calculate_heat_balance(orbital_altitude1, satellite1, eclipse=True)
-    # ====old====
-    # hot case
-    heat_inflow = heat_flux_in(orbital_altitude1)
+    print ("Calculating cold case...")
+    get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
 
-    visible_flux = heat_inflow["solar_flux"]
-    albedo_flux = heat_inflow["albedo_flux"]
-    ir_flux = heat_inflow["ir_flux"]
-    #print('Solar flux is %3.2f W/m^2' % visible_flux)
-    #print('Albedo flux is %3.2f W/m^2' % albedo_flux)
-    #print('IR flux is %3.2f W/m^2' % ir_flux)
-    area_sun = total_area/2.0
-    area_albedo = total_area/2.0
-    area_ir = total_area/2.0
-    area_dissipation = total_area
-    internal_heat_dissipation = 3000 # 4612
-    absorbtivity_visible = 0.21
-    emissivity_ir = 0.9
-    t1 = get_equilibrium_t(absorbtivity_visible,
-                       emissivity_ir,
-                       visible_flux,
-                       albedo_flux,
-                       ir_flux,
-                       area_sun,
-                       area_albedo,
-                       area_ir,
-                       area_dissipation,
-                       internal_heat_dissipation)
-    # cold case
-    t2 = get_equilibrium_t(absorbtivity_visible,
-                       emissivity_ir,
-                       0,
-                       0,
-                       ir_flux,
-                       area_sun,
-                       area_albedo,
-                       area_ir,
-                       area_dissipation,
-                       internal_heat_dissipation)
-
-    print('Equilibrium temperature %3.2f C' % (t1-273.15))
-    print('Eclipse temperature %3.2f C' % (t2-273.15))
-    x = power_radiation(t1)
-    # wavelength from T
-    #print ('Re-radiated power is %3.2f W/m^2' % x)
-
-    # heat flux example
-    heat_in1 = {
-        "solar_flux":0.0,
-        "albedo_flux":0.0,
-        "ir_flux":x
-    }
-
-    result = get_equilibrium_temperature(module1, heat_in1)
-    # print("Equlibrium temperature is %3.2f C" % (result-273.15))
-    desired_t = 273
-    internal_heat = get_internal_heating(module1, heat_in1, result)
-    # print("Required internal heating for equilibirum T of %3.2f C is %3.2f W" % ((result-273.15), internal_heat))
 main()
