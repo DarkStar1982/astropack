@@ -1,5 +1,5 @@
 #!/usr/local/bin/python3
-from math import pi,sqrt,pow,cos,sin, acos, atan
+from math import pi, sqrt, pow, cos, sin, acos, atan
 
 # Important constants
 T_SUN = 5780 # blackbody T of the Sun
@@ -257,12 +257,12 @@ def flat_plate_thermal_balance(heat_flux):
 def main():
     # satellite1 = load_satellite_geometry()
     # hot case
-    #print ("Calculating hot case...")
-    #module_list = load_module_list()
-    #get_detailed_thermal_balance(orbital_altitude2, satellite1, module_list)
-    #satellite1["heat_dissipation"] = 3000
-    #print ("Calculating cold case...")
-    #get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
+    # print ("Calculating hot case...")
+    # module_list = load_module_list()
+    # get_detailed_thermal_balance(orbital_altitude2, satellite1, module_list)
+    # satellite1["heat_dissipation"] = 3000
+    # print ("Calculating cold case...")
+    # get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
     heat_flux = heat_flux_in(orbital_altitude2)
     flat_plate_thermal_balance(heat_flux)
 
