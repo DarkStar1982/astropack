@@ -10,9 +10,6 @@ D_earth = 1.471E11
 A_earth = 0.34 #albedo
 SB_CONST = 5.6703E-8
 
-orbital_altitude1 = 3.6E7 # geosynchronous orbit
-orbital_altitude2 = 2.5E5 # low-earth orbit
-
 def display_in_celcius(value):
     return (value-273.15)
 
@@ -255,6 +252,8 @@ def flat_plate_thermal_balance(heat_flux):
     print("Reradiated power is %3.2f W/m^2" % reradiated)
 
 def main():
+    orbital_altitude1 = 3.6E7 # geosynchronous orbit
+    orbital_altitude2 = 2.5E5 # low-earth orbit
     # satellite1 = load_satellite_geometry()
     # hot case
     # print ("Calculating hot case...")
