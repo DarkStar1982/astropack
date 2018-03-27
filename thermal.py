@@ -126,31 +126,31 @@ def load_satellite_geometry():
         "class":"variable",
         "area_visible" :
         {
-            "area":1.0,
+            "area":0.0,
             "e_ir":0.9,
             "a_ir":0.9,
             "a_visible":0.21
         },
         "area_albedo":
         {
-            "area":1.0,
+            "area":0.0,
             "e_ir":0.9,
             "a_ir":0.9,
             "a_visible":0.21
         },
         "area_ir":
         {
-            "area":1.0,
+            "area":0.0,
             "e_ir":0.9,
             "a_ir":0.9,
             "a_visible":0.21
         },
         "area_dissipation":
         {
-            "area":1.0,
-            "e_ir":0.9,
-            "a_ir":0.9,
-            "a_visible":0.21
+            "area":0.0,
+            "e_ir":0.83,
+            "a_ir":0.83,
+            "a_visible":0.01
         }
     }
     total_area = 2.2*1.9*2+2.2*3.5*2+1.9*3.5*2
@@ -224,15 +224,46 @@ def load_module_list():
     }
     return [battery_pack, pdu, smu]
 
+# calculate flat plate view angle
+def flat_plate_thermal_balance(heat_flux):
+    # get equilibrium temperature
+    # get radiated power
+    model = {
+        "heat_dissipation":2300.0,
+        "geometry":{
+            "a" : 2.2,
+            "b" : 3.5
+        },
+        "ir":{
+            "absorptivity":0.9,
+            "emissivity":0.9
+        },
+        "visible":
+        {
+            "absorptivity":0.9,
+            "emissivity":0.9
+        }
+    }
+    surface_area = model["geometry"]["a"]*model["geometry"]["b"]
+    heat_ir = heat_flux["ir_flux"]*model["ir"]["absorptivity"]
+    heat_visible = (heat_flux["albedo_flux"] + heat_flux["solar_flux"])*model["visible"]["absorptivity"]
+    total_heat_in = (heat_ir + heat_visible) * surface_area + model["heat_dissipation"]
+    total_heat_out = 2*surface_area * model["ir"]["emissivity"] * SB_CONST
+    result_temp = pow(total_heat_in/total_heat_out,0.25)
+    reradiated = power_radiation(result_temp)
+    print("Equilibrium temperature is %3.2f C" % display_in_celcius(result_temp))
+    print("Reradiated power is %3.2f W/m^2" % reradiated)
+
 def main():
-    satellite1 = load_satellite_geometry()
+    # satellite1 = load_satellite_geometry()
     # hot case
-    print ("Calculating hot case...")
-    module_list = load_module_list()
-    get_detailed_thermal_balance(orbital_altitude2, satellite1, module_list)
-    # cold case
-    satellite1["heat_dissipation"] = 3000
-    print ("Calculating cold case...")
-    get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
+    #print ("Calculating hot case...")
+    #module_list = load_module_list()
+    #get_detailed_thermal_balance(orbital_altitude2, satellite1, module_list)
+    #satellite1["heat_dissipation"] = 3000
+    #print ("Calculating cold case...")
+    #get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
+    heat_flux = heat_flux_in(orbital_altitude2)
+    flat_plate_thermal_balance(heat_flux)
 
 main()
