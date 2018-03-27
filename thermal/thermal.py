@@ -248,8 +248,8 @@ def flat_plate_thermal_balance(heat_flux):
     total_heat_out = 2*surface_area * model["ir"]["emissivity"] * SB_CONST
     result_temp = pow(total_heat_in/total_heat_out,0.25)
     reradiated = power_radiation(result_temp)
-    print("Equilibrium temperature is %3.2f C" % display_in_celcius(result_temp))
-    print("Reradiated power is %3.2f W/m^2" % reradiated)
+    return {"result_temp":result_temp, "reradiated_power":reradiated}
+
 
 def main():
     orbital_altitude1 = 3.6E7 # geosynchronous orbit
@@ -263,6 +263,8 @@ def main():
     # print ("Calculating cold case...")
     # get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
     heat_flux = heat_flux_in(orbital_altitude2)
-    flat_plate_thermal_balance(heat_flux)
+    result = flat_plate_thermal_balance(heat_flux)
+    print("Equilibrium temperature is %3.2f C" % display_in_celcius(result["result_temp"]))
+    print("Reradiated power is %3.2f W/m^2" % result["reradiated_power"])
 
 main()
