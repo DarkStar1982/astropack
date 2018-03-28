@@ -35,13 +35,17 @@ def albedo_irradiance(p,r):
 
 def get_surface_area(object_geometry):
     surface_area = 0.0
+    if object_geometry["type"] == "plate2D":
+        a = object_geometry["dimensions"]["a"]
+        b = object_geometry["dimensions"]["b"]
+        return a*b
     if object_geometry["type"] == "box":
         a = object_geometry["dimensions"]["a"]
         b = object_geometry["dimensions"]["b"]
         c = object_geometry["dimensions"]["c"]
         surface_area = 2*a*b+2*a*c+2*b*c
     if object_geometry["type"] == "sphere":
-        r = object_geometry["dimensions"]["a"]
+        r = object_geometry["dimensions"]["r"]
         surface_area = 4*pi*pow(r,2)
     return surface_area
 
@@ -202,7 +206,6 @@ def load_module_list():
 
     smu = {
         "id":"SMU",
-        "class":"uniform",
         "type":"box",
         "heat_dissipation":30.0,
         "emissivity":{
@@ -221,13 +224,36 @@ def load_module_list():
     }
     return [battery_pack, pdu, smu]
 
-# calculate flat plate view angle
-def flat_plate_thermal_balance(heat_flux):
-    # get equilibrium temperature
-    # get radiated power
-    model = {
+# calculate thermal equilibrium of given shape:
+# get equilibrium temperatur and radiated power
+def solve_thermal_balance(heat_flux, model):
+    surface_area = get_surface_area(model)
+    heat_ir = heat_flux["ir_flux"]*model["ir"]["absorptivity"]
+    heat_visible = (heat_flux["albedo_flux"] + heat_flux["solar_flux"])*model["visible"]["absorptivity"]
+    total_heat_in = (heat_ir + heat_visible) * surface_area + model["heat_dissipation"]
+    if model["class"] == "shell":
+        total_heat_out = 2*surface_area * model["ir"]["emissivity"] * SB_CONST
+        result_temp = pow(total_heat_in/total_heat_out,0.25)
+        reradiated_ir = power_radiation(result_temp)
+    if model["class"] == "solid":
+        total_heat_out = surface_area * model["ir"]["emissivity"] * SB_CONST
+        result_temp = pow(total_heat_in/total_heat_out,0.25)
+        reradiated_ir = 0.0
+    reradiated_flux = {
+        "ir_flux":reradiated_ir,
+        "albedo_flux":0.0,
+        "solar_flux":0.0
+    }
+    return {"result_temp":result_temp, "reradiated_flux":reradiated_flux}
+
+def main():
+    orbital_altitude1 = 3.6E7 # geosynchronous orbit
+    orbital_altitude2 = 2.5E5 # low-earth orbit
+    plate2D = {
         "heat_dissipation":2300.0,
-        "geometry":{
+        "type":"plate2D",
+        "class":"shell",
+        "dimensions":{
             "a" : 2.2,
             "b" : 3.5
         },
@@ -241,19 +267,26 @@ def flat_plate_thermal_balance(heat_flux):
             "emissivity":0.9
         }
     }
-    surface_area = model["geometry"]["a"]*model["geometry"]["b"]
-    heat_ir = heat_flux["ir_flux"]*model["ir"]["absorptivity"]
-    heat_visible = (heat_flux["albedo_flux"] + heat_flux["solar_flux"])*model["visible"]["absorptivity"]
-    total_heat_in = (heat_ir + heat_visible) * surface_area + model["heat_dissipation"]
-    total_heat_out = 2*surface_area * model["ir"]["emissivity"] * SB_CONST
-    result_temp = pow(total_heat_in/total_heat_out,0.25)
-    reradiated = power_radiation(result_temp)
-    return {"result_temp":result_temp, "reradiated_power":reradiated}
 
-
-def main():
-    orbital_altitude1 = 3.6E7 # geosynchronous orbit
-    orbital_altitude2 = 2.5E5 # low-earth orbit
+    smu = {
+        "type":"box",
+        "class":"solid",
+        "heat_dissipation":0.0,
+        "ir":
+        {
+            "absorptivity":0.9,
+            "emissivity":0.9
+        },
+        "visible":{
+            "absorptivity":0.9,
+            "emissivity":0.9
+        },
+        "dimensions":{
+            "a":0.42,
+            "b":0.27,
+            "c":0.276,
+        }
+    }
     # satellite1 = load_satellite_geometry()
     # hot case
     # print ("Calculating hot case...")
@@ -262,9 +295,11 @@ def main():
     # satellite1["heat_dissipation"] = 3000
     # print ("Calculating cold case...")
     # get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
-    heat_flux = heat_flux_in(orbital_altitude2)
-    result = flat_plate_thermal_balance(heat_flux)
+    heat_flux = heat_flux_in(orbital_altitude1)
+    result = solve_thermal_balance(heat_flux,plate2D)
     print("Equilibrium temperature is %3.2f C" % display_in_celcius(result["result_temp"]))
-    print("Reradiated power is %3.2f W/m^2" % result["reradiated_power"])
+    result = solve_thermal_balance(result["reradiated_flux"],smu)
+    print("Equilibrium temperature is %3.2f C" % display_in_celcius(result["result_temp"]))
+    #print("Reradiated power is %3.2f W/m^2" % result["reradiated_power"])
 
 main()
