@@ -9,6 +9,7 @@ R_earth = 6.371E6
 D_earth = 1.471E11
 A_earth = 0.34 #albedo
 SB_CONST = 5.6703E-8
+DEFAULT_VIEW_ANGLE = 90
 
 def display_in_celcius(value):
     return (value-273.15)
@@ -33,7 +34,7 @@ def albedo_irradiance(p,r):
     a = pi*pow(r,2)
     return p/a
 
-def get_surface_area(object_geometry):
+def get_surface_area(object_geometry, view_angle=DEFAULT_VIEW_ANGLE):
     surface_area = 0.0
     if object_geometry["type"] == "plate2D":
         a = object_geometry["dimensions"]["a"]
@@ -47,6 +48,8 @@ def get_surface_area(object_geometry):
     if object_geometry["type"] == "sphere":
         r = object_geometry["dimensions"]["r"]
         surface_area = 4*pi*pow(r,2)
+    if view_angle != DEFAULT_VIEW_ANGLE:
+        surface_area = surface_area
     return surface_area
 
 def heat_flux_in(orbital_attitude, in_eclipse=False):
