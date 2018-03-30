@@ -40,7 +40,15 @@ def albedo_irradiance(p,r):
 # given a 3d shape and angle between the plane,
 # get an are project on that plane
 def get_projected_area(object_geometry, view_angle):
+    alpha = view_angle
+    beta = 90-view_angle
+    angles = [alpha, beta]
+    i = 0
+    total_area = 0.0
     for x in object_geometry:
+        total_area = total_area + get_surface_area(x,angles[i])
+        i = i + 1
+    return total_area
 
 def get_surface_area(object_geometry, view_angle):
     surface_area = 0.0
