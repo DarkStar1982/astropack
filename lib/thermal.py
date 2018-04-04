@@ -165,6 +165,20 @@ def calculate_thermal_case(satellite_geometry, heat_flux):
     }
     return internal_flux
 
+def load_module_list():
+    # list of modules
+    # as uniform blackbodies
+    smu = {
+        "type":"box",
+        "class":"solid",
+        "material": MATERIAL_BLACKBODY,
+        "dimensions":{
+                "a":0.42,
+                "b":0.27,
+                "c":0.276,
+        }
+    }
+    return
 # initialize data
 # how it should be:
 # input: geometry + materials + radiation sources
@@ -216,19 +230,6 @@ def main():
         "material": MATERIAL_BLANKET
     }
 
-    # list of modules
-    # as uniform blackbodies
-    smu = {
-        "type":"box",
-        "class":"solid",
-        "material": MATERIAL_BLACKBODY,
-        "dimensions":{
-            "a":0.42,
-            "b":0.27,
-            "c":0.276,
-        }
-    }
-
     print ("Calculating hot case...")
     satellite_geometry = [
         (plate2D_blanket_long, 0, view_angles_a, True, False), # bottom plate
@@ -251,11 +252,11 @@ def main():
         (plate2D_blanket_short, 0, view_angles_b, False, False), # forward plate
         (plate2D_blanket_short, 0,  view_angles_b, False, False), # back plate
         (plate2D_blanket_long, 0, view_angles_a, False, True), # top plate
-        (plate2D_osr, 1400, view_angles_b, False, False), # radiator 1
-        (plate2D_osr, 1400, view_angles_b, False, False), # radiator 2
+        (plate2D_osr, 1500, view_angles_b, False, False), # radiator 1
+        (plate2D_osr, 1500, view_angles_b, False, False), # radiator 2
         ]
     internal_flux = calculate_thermal_case(satellite_geometry, heat_flux)
-    result = solve_thermal_balance(internal_flux, smu, 130.0, view_angles_a)
+    result = solve_thermal_balance(internal_flux, smu, 30.0, view_angles_a)
     print("Equilibrium module temperature is %3.2f C" % kelvin_to_celcius(result["result_temp"]))
 
 main()
