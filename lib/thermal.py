@@ -11,10 +11,47 @@ A_earth = 0.34 #albedo
 SB_CONST = 5.6703E-8
 DEFAULT_VIEW_ANGLE = 0
 
+MATERIAL_OSR = {
+        "ir":{
+            "absorptivity":0.83,
+            "emissivity":0.83
+        },
+        "visible":
+        {
+            "absorptivity":0.06,
+            "emissivity":0.06
+        },
+    }
+
+MATERIAL_BLANKET  = {
+        "ir":{
+            "absorptivity":0.003,
+            "emissivity":0.83
+        },
+        "visible":
+        {
+            "absorptivity":0.83,
+            "emissivity":0.83
+        },
+    }
+
+MATERIAL_BLACKBODY  = {
+        "ir":{
+            "absorptivity":0.83,
+            "emissivity":0.83
+        },
+        "visible":
+        {
+            "absorptivity":0.83,
+            "emissivity":0.83
+        },
+    }
+
+
 def degree_to_radians(value):
     return (pi*value/180)
 
-def display_in_celcius(value):
+def kelvin_to_celcius(value):
     return (value-273.15)
 
 def power_blackbody(r, t):
@@ -37,38 +74,6 @@ def albedo_irradiance(p,r):
     a = pi*pow(r,2)
     return p/a
 
-# given a 3d shape and angle between the plane,
-# get an are project on that plane
-def get_projected_area(object_geometry, view_angle):
-    alpha = view_angle
-    beta = 90-view_angle
-    angles = [alpha, beta]
-    i = 0
-    total_area = 0.0
-    for x in object_geometry:
-        total_area = total_area + get_surface_area(x,angles[i])
-        i = i + 1
-    return total_area
-
-def get_surface_area(object_geometry, view_angle):
-    surface_area = 0.0
-    if object_geometry["type"] == "plate2D":
-        a = object_geometry["dimensions"]["a"]
-        b = object_geometry["dimensions"]["b"]
-        surface_area = a*b
-        if view_angle != DEFAULT_VIEW_ANGLE:
-            surface_area = surface_area*cos(degree_to_radians(view_angle))
-    if object_geometry["type"] == "box":
-        a = object_geometry["dimensions"]["a"]
-        b = object_geometry["dimensions"]["b"]
-        c = object_geometry["dimensions"]["c"]
-        surface_area = 2*a*b+2*a*c+2*b*c
-    if object_geometry["type"] == "sphere":
-        r = object_geometry["dimensions"]["r"]
-        surface_area = 4*pi*pow(r,2)
-
-    return surface_area
-
 def heat_flux_in(orbital_attitude, in_eclipse=False):
     P_sun = power_blackbody(R_sun,T_SUN)
     P_earth = power_blackbody(R_earth, T_EARTH)
@@ -84,20 +89,52 @@ def heat_flux_in(orbital_attitude, in_eclipse=False):
     else:
         return { "solar_flux":0.0, "albedo_flux":0.0, "ir_flux":ir_flux }
 
+def get_surface_area(object_geometry, view_angle=0.0, mode="total"):
+    surface_area = 0.0
+    if object_geometry["type"] == "plate2D":
+        a = object_geometry["dimensions"]["a"]
+        b = object_geometry["dimensions"]["b"]
+        surface_area = a*b
+        if mode == "projection":
+            surface_area = surface_area*cos(degree_to_radians(view_angle))
+    if object_geometry["type"] == "box":
+        a = object_geometry["dimensions"]["a"]
+        b = object_geometry["dimensions"]["b"]
+        c = object_geometry["dimensions"]["b"]
+        surface_area = 2*a*b+2*b*c+2*c*a
+        if mode == "projection":
+            #todo
+            pass
+    return surface_area
+
 # calculate thermal equilibrium of given shape:
 # get equilibrium temperatur and radiated power
-def solve_thermal_balance(heat_flux, model, view_angle=0):
-    absorbing_surface_area = get_surface_area(model,view_angle)
-    heat_ir = heat_flux["ir_flux"]*model["ir"]["absorptivity"]
-    heat_visible = (heat_flux["albedo_flux"] + heat_flux["solar_flux"])*model["visible"]["absorptivity"]
-    total_heat_in = (heat_ir + heat_visible) * absorbing_surface_area + model["heat_dissipation"]
-    dissipating_surface_area = get_surface_area(model,0)
+# including calculate view are for Earth IR and albedo
+
+def solve_thermal_balance(heat_flux, model,internal_heat_dissipation, view_angles, visible_shaded=False, ir_shaded=False):
+    ir_absorbing_surface_area = get_surface_area(model,view_angles["ir"],"projection")
+    visible_absorbing_surface_area = get_surface_area(model,view_angles["visible"],"projection")
+    albedo_absorbing_surface_area = get_surface_area(model,view_angles["ir"],"projection")
+    if ir_shaded:
+        total_heat_ir = 0.0
+    else:
+        heat_ir = heat_flux["ir_flux"]*model["material"]["ir"]["absorptivity"]
+        total_heat_ir = heat_ir*ir_absorbing_surface_area
+    if visible_shaded:
+        heat_visible = heat_flux["albedo_flux"] * model["material"]["visible"]["absorptivity"]
+        total_heat_visible = heat_visible*albedo_absorbing_surface_area
+    else:
+        heat_visible_a = heat_flux["albedo_flux"] * model["material"]["visible"]["absorptivity"] * albedo_absorbing_surface_area
+        heat_visible_b = heat_flux["solar_flux"] * model["material"]["visible"]["absorptivity"] * visible_absorbing_surface_area
+        total_heat_visible = heat_visible_a + heat_visible_b
+    total_heat_in = total_heat_ir + total_heat_visible + internal_heat_dissipation
+    dissipating_surface_area = get_surface_area(model,"total")
     if model["class"] == "shell":
-        total_heat_out = 2*dissipating_surface_area * model["ir"]["emissivity"] * SB_CONST
+        total_heat_out = 2*dissipating_surface_area * model["material"]["ir"]["emissivity"] * SB_CONST
         result_temp = pow(total_heat_in/total_heat_out,0.25)
         reradiated_ir = power_radiation(result_temp)
     if model["class"] == "solid":
-        total_heat_out = dissipating_surface_area * model["ir"]["emissivity"] * SB_CONST
+        total_heat_out = dissipating_surface_area * model["material"]["ir"]["emissivity"] * SB_CONST
         result_temp = pow(total_heat_in/total_heat_out,0.25)
         reradiated_ir = 0.0
     reradiated_flux = {
@@ -105,7 +142,28 @@ def solve_thermal_balance(heat_flux, model, view_angle=0):
         "albedo_flux":0.0,
         "solar_flux":0.0
     }
-    return {"result_temp":result_temp, "reradiated_flux":reradiated_flux}
+    return { "result_temp":result_temp, "reradiated_flux":reradiated_flux }
+
+
+def calculate_thermal_case(satellite_geometry, heat_flux):
+    net_area = 0.0
+    net_reradiated = 0.0
+    for x in satellite_geometry:
+        surface_area = get_surface_area(x[0])
+        net_area = net_area + surface_area
+        result = solve_thermal_balance(heat_flux,x[0],x[1],x[2],x[3],x[4])
+        print("Equilibrium temperature is %3.2f C" % kelvin_to_celcius(result["result_temp"]))
+        print("Reradiated power is %3.2f W/m^2" % result["reradiated_flux"]["ir_flux"])
+        #print("Surface_area is %3.2f m^2" % surface_area)
+        total_reradiated = surface_area*result["reradiated_flux"]["ir_flux"]
+        net_reradiated = net_reradiated + total_reradiated
+    internal_ir_level = net_reradiated/net_area
+    internal_flux = {
+        "ir_flux":internal_ir_level,
+        "albedo_flux":0.0,
+        "solar_flux":0.0
+    }
+    return internal_flux
 
 # initialize data
 # how it should be:
@@ -113,59 +171,91 @@ def solve_thermal_balance(heat_flux, model, view_angle=0):
 # output: equilibrium temperature or heating/cooling required
 # geometry example - non-uniform illumination and non-uniform properties
 def main():
-    orbital_altitude1 = 3.6E7 # geosynchronous orbit
-    orbital_altitude2 = 2.5E5 # low-earth orbit
-    plate2D = {
-        "heat_dissipation":2300.0,
+    orbital_altitude1 = 2.5E5 # low-earth orbit
+    orbital_altitude2 = 3.6E7 # geosynchronous orbit
+    # illumination angle - direct
+    view_angles_a = {
+        "ir": 0.0,
+        "visible": 0.0
+    }
+    # illumination angle - oblique
+    view_angles_b = {
+        "ir": 45.0,
+        "visible": 45.0
+    }
+
+    # radiator plate - dissipating
+    plate2D_osr = {
         "type":"plate2D",
         "class":"shell",
         "dimensions":{
             "a" : 2.2,
-            "b" : 3.5
+            "b" : 2.5
         },
-        "ir":{
-            "absorptivity":0.9,
-            "emissivity":0.9
-        },
-        "visible":
-        {
-            "absorptivity":0.9,
-            "emissivity":0.9
-        }
+        "material": MATERIAL_OSR
     }
 
+    # non-radiator plate - absorbing
+    plate2D_blanket_long = {
+        "type":"plate2D",
+        "class":"shell",
+        "dimensions":{
+            "a" : 1.9,
+            "b" : 2.5
+        },
+        "material": MATERIAL_BLANKET
+    }
+
+    plate2D_blanket_short = {
+        "type":"plate2D",
+        "class":"shell",
+        "dimensions":{
+            "a" : 1.9,
+            "b" : 2.2
+        },
+        "material": MATERIAL_BLANKET
+    }
+
+    # list of modules
+    # as uniform blackbodies
     smu = {
         "type":"box",
         "class":"solid",
-        "heat_dissipation":0.0,
-        "ir":
-        {
-            "absorptivity":0.9,
-            "emissivity":0.9
-        },
-        "visible":{
-            "absorptivity":0.9,
-            "emissivity":0.9
-        },
+        "material": MATERIAL_BLACKBODY,
         "dimensions":{
             "a":0.42,
             "b":0.27,
             "c":0.276,
         }
     }
-    # satellite1 = load_satellite_geometry()
-    # hot case
-    # print ("Calculating hot case...")
-    # module_list = load_module_list()
-    # get_detailed_thermal_balance(orbital_altitude2, satellite1, module_list)
-    # satellite1["heat_dissipation"] = 3000
-    # print ("Calculating cold case...")
-    # get_detailed_thermal_balance(orbital_altitude1, satellite1, module_list, eclipse=True)
+
+    print ("Calculating hot case...")
+    satellite_geometry = [
+        (plate2D_blanket_long, 0, view_angles_a, True, False), # bottom plate
+        (plate2D_blanket_short, 0, view_angles_b, False, False), # forward plate
+        (plate2D_blanket_short, 0, view_angles_b, False, False), # back plate
+        (plate2D_blanket_long, 0, view_angles_a, False, True), # top plate
+        (plate2D_osr, 2300, view_angles_b, False, False), # radiator 1
+        (plate2D_osr, 2300, view_angles_b, False, False), # radiator 2
+    ]
+
     heat_flux = heat_flux_in(orbital_altitude1)
-    result = solve_thermal_balance(heat_flux,plate2D,0)
-    print("Equilibrium temperature is %3.2f C" % display_in_celcius(result["result_temp"]))
-    result = solve_thermal_balance(result["reradiated_flux"],smu)
-    print("Equilibrium temperature is %3.2f C" % display_in_celcius(result["result_temp"]))
-    #print("Reradiated power is %3.2f W/m^2" % result["reradiated_flux"])
+    internal_flux = calculate_thermal_case(satellite_geometry, heat_flux)
+    result = solve_thermal_balance(internal_flux, smu, 0.0, view_angles_a)
+    print("Equilibrium module temperature is %3.2f C" % kelvin_to_celcius(result["result_temp"]))
+
+    print ("Calculating cold case...")
+    heat_flux = heat_flux_in(orbital_altitude2, True)
+    satellite_geometry = [
+        (plate2D_blanket_long, 0, view_angles_a, True, False), # bottom plate
+        (plate2D_blanket_short, 0, view_angles_b, False, False), # forward plate
+        (plate2D_blanket_short, 0,  view_angles_b, False, False), # back plate
+        (plate2D_blanket_long, 0, view_angles_a, False, True), # top plate
+        (plate2D_osr, 1400, view_angles_b, False, False), # radiator 1
+        (plate2D_osr, 1400, view_angles_b, False, False), # radiator 2
+        ]
+    internal_flux = calculate_thermal_case(satellite_geometry, heat_flux)
+    result = solve_thermal_balance(internal_flux, smu, 130.0, view_angles_a)
+    print("Equilibrium module temperature is %3.2f C" % kelvin_to_celcius(result["result_temp"]))
 
 main()
