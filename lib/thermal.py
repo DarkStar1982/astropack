@@ -152,8 +152,8 @@ def calculate_thermal_case(satellite_geometry, heat_flux):
         surface_area = get_surface_area(x[0])
         net_area = net_area + surface_area
         result = solve_thermal_balance(heat_flux,x[0],x[1],x[2],x[3],x[4])
-        print("Equilibrium temperature is %3.2f C" % kelvin_to_celcius(result["result_temp"]))
-        print("Reradiated power is %3.2f W/m^2" % result["reradiated_flux"]["ir_flux"])
+        #print("Equilibrium temperature is %3.2f C" % kelvin_to_celcius(result["result_temp"]))
+        #print("Reradiated power is %3.2f W/m^2" % result["reradiated_flux"]["ir_flux"])
         #print("Surface_area is %3.2f m^2" % surface_area)
         total_reradiated = surface_area*result["reradiated_flux"]["ir_flux"]
         net_reradiated = net_reradiated + total_reradiated
@@ -169,6 +169,7 @@ def load_module_list():
     # list of modules
     # as uniform blackbodies
     smu = {
+        "label": "System Management Unit",
         "type":"box",
         "class":"solid",
         "material": MATERIAL_BLACKBODY,
@@ -178,7 +179,45 @@ def load_module_list():
                 "c":0.276,
         }
     }
-    return
+
+    battery_pack = {
+        "label":"Battery Pack",
+        "type":"box",
+        "class":"solid",
+        "material": MATERIAL_BLACKBODY,
+        "dimensions":{
+                "a":1.536,
+                "b":0.39,
+                "c":0.25,
+        }
+    }
+
+    pru = {
+        "label":"Battery Pack",
+        "type":"box",
+        "class":"solid",
+        "material": MATERIAL_BLACKBODY,
+        "dimensions":{
+            "a":0.39,
+            "b":0.19,
+            "c":0.19,
+        }
+    }
+
+    pdu = {
+
+    }
+
+    return [battery_pack,pru]
+
+def calculate_satellite_thermal_balance(orbital_altitude, satellite_geometry, view_angles, in_eclipse=False):
+    heat_flux = heat_flux_in(orbital_altitude,in_eclipse)
+    internal_flux = calculate_thermal_case(satellite_geometry, heat_flux)
+    print ("Interior heat flux is %3.2f" % internal_flux["ir_flux"])
+    for x in load_module_list():
+        result = solve_thermal_balance(internal_flux, x, 0.0, view_angles)
+        print("Equilibrium module %s temperature is %3.2f C" % (x["label"],kelvin_to_celcius(result["result_temp"])))
+
 # initialize data
 # how it should be:
 # input: geometry + materials + radiation sources
@@ -239,14 +278,9 @@ def main():
         (plate2D_osr, 2300, view_angles_b, False, False), # radiator 1
         (plate2D_osr, 2300, view_angles_b, False, False), # radiator 2
     ]
-
-    heat_flux = heat_flux_in(orbital_altitude1)
-    internal_flux = calculate_thermal_case(satellite_geometry, heat_flux)
-    result = solve_thermal_balance(internal_flux, smu, 0.0, view_angles_a)
-    print("Equilibrium module temperature is %3.2f C" % kelvin_to_celcius(result["result_temp"]))
+    calculate_satellite_thermal_balance(orbital_altitude1, satellite_geometry,view_angles_a,False)
 
     print ("Calculating cold case...")
-    heat_flux = heat_flux_in(orbital_altitude2, True)
     satellite_geometry = [
         (plate2D_blanket_long, 0, view_angles_a, True, False), # bottom plate
         (plate2D_blanket_short, 0, view_angles_b, False, False), # forward plate
@@ -254,9 +288,7 @@ def main():
         (plate2D_blanket_long, 0, view_angles_a, False, True), # top plate
         (plate2D_osr, 1500, view_angles_b, False, False), # radiator 1
         (plate2D_osr, 1500, view_angles_b, False, False), # radiator 2
-        ]
-    internal_flux = calculate_thermal_case(satellite_geometry, heat_flux)
-    result = solve_thermal_balance(internal_flux, smu, 30.0, view_angles_a)
-    print("Equilibrium module temperature is %3.2f C" % kelvin_to_celcius(result["result_temp"]))
+    ]
+    calculate_satellite_thermal_balance(orbital_altitude2, satellite_geometry, view_angles_a,True)
 
 main()
